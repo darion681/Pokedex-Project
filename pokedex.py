@@ -1,103 +1,3 @@
-# import pandas as pd
-# import matplotlib as plt
-# import dearpygui.dearpygui as dpg
-# import dearpygui.demo as demo
-# from importlib.metadata import version as pkg_version
-# from packaging import version
-# import sys
-# import os
-# from time import sleep
-
-# def clear(): # clears terminal instantly
-#     os.system('cls' if os.name == 'nt' else 'clear')
-
-# def clear_terminal(): #clears terminal with a delay
-#     sleep(2)
-#     os.system('cls' if os.name == 'nt' else 'clear')
-
-# def clear_delay(): #clears terminal with a short delay
-#     sleep(0.3)
-#     os.system('cls' if os.name == 'nt' else 'clear')
-
-# clear()
-
-# #loading screen
-# print("Initializing...")
-# clear_delay()
-# load = 0
-# print("Loading - ", load, "%")
-# clear_delay()
-# while load <= 99:
-#     load = load + 25
-#     print("Loading - ", load, "%")
-#     clear_delay()
-# print("Loading - Complete!")
-# clear_terminal()
-
-# print("Checking app dependencies versions.")
-# sleep(2)
-# print("Pandas Version:", pd.__version__)
-# print("Matplotlib Version:", plt.__version__)
-# print("DearPyGui Version:", pkg_version("dearpygui"))
-# clear_terminal()
-
-# outdated = []
-
-# if version.parse(pd.__version__) < version.parse("2.3.3"):
-#     outdated.append("Pandas")
-
-# if version.parse(plt.__version__) < version.parse("3.10.8"):
-#     outdated.append("Matplotlib")
-
-# if version.parse(pkg_version("dearpygui")) < version.parse("2.1.1"):
-#     outdated.append("DearPyGui")
-
-# if outdated:
-#     print(
-#         "Application cannot continue due to outdated dependencies:",
-#         ", ".join(outdated),
-#         "\nPlease update the dependencies."
-#     )
-#     sys.exit()
-
-# print("All dependencies are up to date. Launching Pokedex...")
-
-# # GUI - Possibly add to seperate filelater
-
-# dpg.create_context()
-
-# # with dpg.window(tag="Primary Window"):
-# #     dpg.add_text("Hello, world")
-# #     dpg.add_button(label="Save")
-# #     dpg.add_input_text(label="string", default_value="Quick brown fox")
-# #     dpg.add_slider_float(label="float", default_value=0.273, max_value=1)
-
-# # dpg.create_viewport(title='Custom Title', width=600, height=200)
-# # dpg.setup_dearpygui()
-# # dpg.show_viewport()
-# # dpg.set_primary_window("Primary Window", True)
-# # dpg.start_dearpygui()
-# # dpg.destroy_context()
-
-# dpg.create_context()
-
-# with dpg.window(label="Pokedex"):
-#     dpg.add_button(label="Button 1")
-#     dpg.add_button(label="Button 2")
-#     with dpg.group():
-#         dpg.add_button(label="Button 3")
-#         dpg.add_button(label="Button 4")
-#         with dpg.group() as group1:
-#             pass
-# dpg.add_button(label="Button 6", parent=group1)
-# dpg.add_button(label="Button 5", parent=group1)
-
-# dpg.create_viewport(title='Pokedex.exe', width=600, height=400)
-# dpg.setup_dearpygui()
-# dpg.show_viewport()
-# dpg.start_dearpygui()
-# dpg.destroy_context()
-
 import pandas as pd
 import matplotlib as plt
 import dearpygui.dearpygui as dpg
@@ -106,7 +6,7 @@ from packaging import version
 import sys
 
 # -------------------------
-# Dependency check logic
+# Dependency check
 # -------------------------
 def check_dependencies():
     outdated = []
@@ -114,7 +14,7 @@ def check_dependencies():
     if version.parse(pd.__version__) < version.parse("2.3.3"):
         outdated.append("Pandas")
 
-    if version.parse(plt.__version__) < version.parse("3.10.8"):
+    if version.parse(plt.__version__) < version.parse("3.10.9"):
         outdated.append("Matplotlib")
 
     if version.parse(pkg_version("dearpygui")) < version.parse("2.1.1"):
@@ -124,22 +24,66 @@ def check_dependencies():
 
 
 # -------------------------
-# Loading screen logic
+# Loading logic
 # -------------------------
-def update_loading():
-    progress = dpg.get_value("loading_bar")
+loading_progress = 0.0
+BAR_WIDTH = 400
 
-    if progress < 1.0:
-        progress += 0.005
-        dpg.set_value("loading_bar", progress)
-        dpg.set_value(
-            "loading_text",
-            f"Loading… {int(progress * 100)}%"
-        )
-    else:
+def center_loading_group():
+    if not dpg.does_item_exist("loading_group"):
+        return
+
+    vw = dpg.get_viewport_width()
+    vh = dpg.get_viewport_height()
+
+    x = (vw - BAR_WIDTH) // 2
+    y = vh // 2 - 30
+
+    dpg.set_item_pos("loading_group", (x, y))
+
+
+def sync_loading_window():
+    if not dpg.does_item_exist("Loading Window"):
+        return
+
+    vw = dpg.get_viewport_width()
+    vh = dpg.get_viewport_height()
+
+    dpg.set_item_pos("Loading Window", (0, 0))
+    dpg.set_item_width("Loading Window", vw)
+    dpg.set_item_height("Loading Window", vh)
+
+    center_loading_group()
+
+
+def viewport_resize_callback(sender, app_data):
+    sync_loading_window()
+
+
+def loading_frame_callback():
+    global loading_progress
+
+    if not dpg.does_item_exist("loading_bar"):
+        return
+
+    loading_progress += 0.002
+
+    if loading_progress >= 1.0:
+        dpg.set_value("loading_bar", 1.0)
         dpg.delete_item("Loading Window")
         dpg.configure_item("Main Window", show=True)
-        dpg.delete_item("render_handler")  # stop updating
+        return
+
+    dpg.set_value("loading_bar", loading_progress)
+    dpg.set_value(
+        "loading_text",
+        f"Loading... {int(loading_progress * 100)}%"
+    )
+
+    dpg.set_frame_callback(
+        dpg.get_frame_count() + 1,
+        loading_frame_callback
+    )
 
 
 # -------------------------
@@ -149,36 +93,37 @@ dpg.create_context()
 
 outdated = check_dependencies()
 
-# ❌ Dependency error window
 if outdated:
-    with dpg.window(label="Dependency Error", no_resize=True, no_move=True):
+    with dpg.window(label="Dependency Error", modal=True, no_resize=True):
         dpg.add_text("Application cannot continue.")
         dpg.add_separator()
-        dpg.add_text("Outdated dependencies detected:")
+        dpg.add_text("The following dependencies are outdated:")
 
         for dep in outdated:
-            dpg.add_bullet_text(dep)
+            dpg.add_text(f"-"dep)
 
         dpg.add_spacer(height=10)
         dpg.add_button(label="Exit", callback=lambda: sys.exit())
 
-# ✅ Loading + main app
 else:
     # Loading window
     with dpg.window(
         tag="Loading Window",
         no_title_bar=True,
         no_resize=True,
-        no_move=True
+        no_move=True,
+        modal=True
     ):
-        dpg.add_text("Initialising Pokedex...", tag="loading_text")
-        dpg.add_progress_bar(
-            tag="loading_bar",
-            default_value=0.0,
-            width=300
-        )
+        with dpg.group(tag="loading_group"):
+            dpg.add_text("Initialising Pokedex...", tag="loading_text")
+            dpg.add_spacer(height=8)
+            dpg.add_progress_bar(
+                tag="loading_bar",
+                default_value=0.0,
+                width=BAR_WIDTH
+            )
 
-    # Main app window (hidden initially)
+    # Main app (hidden initially)
     with dpg.window(tag="Main Window", label="Pokedex", show=False):
         dpg.add_button(label="Button 1")
         dpg.add_button(label="Button 2")
@@ -193,17 +138,25 @@ else:
         dpg.add_button(label="Button 6", parent="group1")
         dpg.add_button(label="Button 5", parent="group1")
 
-    # ✅ Render handler (runs every frame)
-    with dpg.handler_registry(tag="render_handler"):
-        dpg.add_render_handler(callback=update_loading)
-
 
 # -------------------------
-# Start app
+# Run app
 # -------------------------
-dpg.create_viewport(title="Pokedex.exe", width=600, height=400)
+dpg.create_viewport(title="Pokedex.exe", width=800, height=600)
 dpg.setup_dearpygui()
 dpg.show_viewport()
+
+if not outdated:
+    sync_loading_window()
+    dpg.set_viewport_resize_callback(viewport_resize_callback)
+    dpg.set_frame_callback(
+        dpg.get_frame_count() + 1,
+        loading_frame_callback
+    )
+
 dpg.start_dearpygui()
 dpg.destroy_context()
+
+
+
 
