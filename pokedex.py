@@ -5,16 +5,14 @@ from importlib.metadata import version as pkg_version
 from packaging import version
 import sys
 
-# -------------------------
-# Dependency check
-# -------------------------
+# check dependncies
 def check_dependencies():
     outdated = []
 
     if version.parse(pd.__version__) < version.parse("2.3.3"):
         outdated.append("Pandas")
 
-    if version.parse(plt.__version__) < version.parse("3.10.9"):
+    if version.parse(plt.__version__) < version.parse("3.10.8"):
         outdated.append("Matplotlib")
 
     if version.parse(pkg_version("dearpygui")) < version.parse("2.1.1"):
@@ -22,10 +20,7 @@ def check_dependencies():
 
     return outdated
 
-
-# -------------------------
-# Loading logic
-# -------------------------
+# loading back-end
 loading_progress = 0.0
 BAR_WIDTH = 400
 
@@ -85,10 +80,7 @@ def loading_frame_callback():
         loading_frame_callback
     )
 
-
-# -------------------------
 # GUI setup
-# -------------------------
 dpg.create_context()
 
 outdated = check_dependencies()
@@ -100,13 +92,13 @@ if outdated:
         dpg.add_text("The following dependencies are outdated:")
 
         for dep in outdated:
-            dpg.add_text(f"-"dep)
+            dpg.add_text(f"- {dep}")
 
         dpg.add_spacer(height=10)
         dpg.add_button(label="Exit", callback=lambda: sys.exit())
 
 else:
-    # Loading window
+    # loading front-end
     with dpg.window(
         tag="Loading Window",
         no_title_bar=True,
@@ -123,7 +115,7 @@ else:
                 width=BAR_WIDTH
             )
 
-    # Main app (hidden initially)
+    # main app (hidden before loading screen)
     with dpg.window(tag="Main Window", label="Pokedex", show=False):
         dpg.add_button(label="Button 1")
         dpg.add_button(label="Button 2")
@@ -138,10 +130,7 @@ else:
         dpg.add_button(label="Button 6", parent="group1")
         dpg.add_button(label="Button 5", parent="group1")
 
-
-# -------------------------
-# Run app
-# -------------------------
+# running app
 dpg.create_viewport(title="Pokedex.exe", width=800, height=600)
 dpg.setup_dearpygui()
 dpg.show_viewport()
