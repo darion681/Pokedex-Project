@@ -1,256 +1,261 @@
-import pandas as pd
-import matplotlib
-import matplotlib.pyplot as plt
-import dearpygui.dearpygui as dpg
+import sys
 from importlib.metadata import version as pkg_version
 from packaging import version
-import sys
 
-# Dependency check
+import pandas as pd
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+import os
+import threading
+import time
+
+# Dependency checks
+REQUIRED = {
+    "python": "3.10",
+    "pandas": "2.3.3",
+    "customtkinter": "5.2.0",
+    "Pillow": "9.0.0"
+}
+
 def check_dependencies():
-    outdated = []
+    issues = []
 
-    if version.parse(pd.__version__) < version.parse("2.3.3"):
-        outdated.append("Pandas")
+    if sys.version_info < tuple(map(int, REQUIRED["python"].split("."))):
+        issues.append(f"Python {REQUIRED['python']}+")
 
-    if version.parse(matplotlib.__version__) < version.parse("3.10.8"):
-        outdated.append("Matplotlib")
+    if version.parse(pd.__version__) < version.parse(REQUIRED["pandas"]):
+        issues.append(f"Pandas {REQUIRED['pandas']}+")
 
-    if version.parse(pkg_version("dearpygui")) < version.parse("2.1.1"):
-        outdated.append("DearPyGui")
+    if version.parse(pkg_version("customtkinter")) < version.parse(REQUIRED["customtkinter"]):
+        issues.append(f"CustomTkinter {REQUIRED['customtkinter']}+")
 
-    return outdated
+    try:
+        import PIL
+    except:
+        issues.append("Pillow (PIL)")
 
-# Load CSV (Pandas)
-try:
-    pokemon_df = pd.read_csv("pokedata.csv")
-except FileNotFoundError:
-    print("pokedata.csv not found.")
+    return issues
+
+deps = check_dependencies()
+if deps:
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showerror(
+        "Dependency Error",
+        "The application cannot start.\n\nOutdated or missing:\n• " + "\n• ".join(deps)
+    )
     sys.exit()
 
+# App setup
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
-pokemon_df.columns = pokemon_df.columns.str.strip()
+app = ctk.CTk()
+app.title("Pokedex")
+app.geometry("1200x700")
 
-pokemon_df = pokemon_df.rename(columns={
+# Loading screen
+loading_frame = ctk.CTkFrame(app)
+loading_frame.pack(fill="both", expand=True)
+
+ctk.CTkLabel(loading_frame, text="Loading Pokedex...", font=("Segoe UI", 24)).pack(pady=50)
+progress = ctk.CTkProgressBar(loading_frame, width=400)
+progress.pack(pady=20)
+progress.set(0.0)
+app.update()
+
+# Load CSV
+try:
+    df = pd.read_csv("pokedata.csv")
+except FileNotFoundError:
+    messagebox.showerror("Error", "pokedata.csv not found")
+    app.destroy()
+    raise SystemExit
+
+df.columns = df.columns.str.strip()
+df = df.rename(columns={
     "Type 1": "Type1",
     "Type 2": "Type2"
 })
+df["Type1"] = df["Type1"].str.strip()
+df["Type2"] = df["Type2"].fillna("").str.strip()
+df["Generation"] = df["Generation"].astype(int)
 
-pokemon_df["Type1"] = pokemon_df["Type1"].str.strip()
-pokemon_df["Type2"] = pokemon_df["Type2"].fillna("").str.strip()
-pokemon_df["Generation"] = pokemon_df["Generation"].astype(int)
+# Pokemon details
+def display_pokemon_detail(pokemon):
+    for widget in detail_frame.winfo_children():
+        widget.destroy()
 
-pokemon_df["Type"] = (
-    pokemon_df["Type1"] +
-    pokemon_df["Type2"].apply(lambda x: f"/{x}" if x else "")
-)
+    name_label = ctk.CTkLabel(detail_frame, text=pokemon["Name"], font=("Segoe UI", 24))
+    name_label.pack(pady=10)
 
+    img_path = f"images/{pokemon['Name']}.png"
+    if os.path.exists(img_path):
+        img = Image.open(img_path).resize((150,150))
+        img = ImageTk.PhotoImage(img)
+        img_label = ctk.CTkLabel(detail_frame, image=img)
+        img_label.image = img
+        img_label.pack(pady=5)
+    else:
+        img_label = ctk.CTkLabel(detail_frame, text="[No Image]", width=15)
+        img_label.pack(pady=5)
 
-
-# Matplotlib logic
-def show_type_distribution():
-    type_counts = pd.concat([
-        pokemon_df["Type1"],
-        pokemon_df["Type2"]
+    stats_text = "\n".join([
+        f"• HP: {pokemon['HP']}",
+        f"• Attack: {pokemon['Attack']}",
+        f"• Defense: {pokemon['Defense']}",
+        f"• Sp. Atk: {pokemon['Sp. Atk']}",
+        f"• Sp. Def: {pokemon['Sp. Def']}",
+        f"• Speed: {pokemon['Speed']}",
+        f"• Legendary: {pokemon['Legendary']}"
     ])
-    type_counts = type_counts[type_counts != ""].value_counts()
+    ctk.CTkLabel(detail_frame, text=stats_text, justify="left").pack(pady=5, anchor="w")
 
-    plt.figure(figsize=(9, 5))
-    type_counts.plot(kind="bar")
-    plt.title("Pokémon Type Distribution")
-    plt.xlabel("Type")
-    plt.ylabel("Count")
-    plt.tight_layout()
-    plt.show()
+# Main layout (empty)
+top_frame = ctk.CTkFrame(app)
+main_frame = ctk.CTkFrame(app)
 
+# Populating Pokémon list & filters
+def populate_list(filtered_df=None):
+    for widget in list_frame.winfo_children():
+        widget.destroy()
 
-def filter_by_type(sender, app_data):
-    filtered = pokemon_df[
-        (pokemon_df["Type1"] == app_data) |
-        (pokemon_df["Type2"] == app_data)
-    ]
+    data = filtered_df if filtered_df is not None else df
+    for g in sorted(data["Generation"].unique()):
+        frame = ctk.CTkFrame(list_frame)
+        frame.pack(fill="x", pady=5, padx=5)
 
-    if filtered.empty:
-        return
+        def make_toggle(f=frame, gen=g):
+            def toggle():
+                for w in f.winfo_children()[1:]:
+                    w.destroy()
+                gen_data = data[data["Generation"] == gen].sort_values("Name")
+                for idx, row in gen_data.iterrows():
+                    ctk.CTkButton(
+                        f, text=row["Name"], width=250,
+                        command=lambda r=row: display_pokemon_detail(r)
+                    ).pack(pady=1)
+            return toggle
 
-    counts = pd.concat([
-        filtered["Type1"],
-        filtered["Type2"]
-    ])
-    counts = counts[counts != ""].value_counts()
+        ctk.CTkButton(frame, text=f"Generation {g}", command=make_toggle()).pack(fill="x")
 
-    plt.figure(figsize=(7, 4))
-    counts.plot(kind="bar")
-    plt.title(f"{app_data} Type Pokémon")
-    plt.ylabel("Count")
-    plt.tight_layout()
-    plt.show()
+# Filters
+def apply_filters():
+    filtered = df.copy()
 
+    name_filter = name_entry.get().strip().lower()
+    if name_filter:
+        filtered = filtered[filtered["Name"].str.lower().str.startswith(name_filter)]
 
-def filter_by_generation(sender, app_data):
-    gen = int(app_data)
-    filtered = pokemon_df[pokemon_df["Generation"] == gen]
+    type1_filter = type1_box.get()
+    if type1_filter:
+        filtered = filtered[filtered["Type1"] == type1_filter]
 
-    if filtered.empty:
-        return
+    type2_filter = type2_box.get()
+    if type2_filter:
+        filtered = filtered[filtered["Type2"] == type2_filter]
 
-    counts = pd.concat([
-        filtered["Type1"],
-        filtered["Type2"]
-    ])
-    counts = counts[counts != ""].value_counts()
+    gen_filter = gen_box.get()
+    if gen_filter:
+        filtered = filtered[filtered["Generation"] == int(gen_filter)]
 
-    plt.figure(figsize=(8, 4))
-    counts.plot(kind="bar")
-    plt.title(f"Generation {gen} Pokémon by Type")
-    plt.ylabel("Count")
-    plt.tight_layout()
-    plt.show()
+    if legendary_var.get():
+        filtered = filtered[filtered["Legendary"] == True]
 
-# Loading backend
-loading_progress = 0.0
-BAR_WIDTH = 400
+    populate_list(filtered)
 
-def center_loading_group():
-    if not dpg.does_item_exist("loading_group"):
-        return
+def show_all():
+    name_entry.delete(0, tk.END)
+    type1_box.set("")
+    type2_box.set("")
+    gen_box.set("")
+    legendary_var.set(False)
+    populate_list()
 
-    vw = dpg.get_viewport_width()
-    vh = dpg.get_viewport_height()
+# Reset UI
+def reset_ui():
+    # Clear filters
+    name_entry.delete(0, tk.END)
+    type1_box.set("")
+    type2_box.set("")
+    gen_box.set("")
+    legendary_var.set(False)
+    
+    # Clear detail panel
+    for widget in detail_frame.winfo_children():
+        widget.destroy()
+    
+    # Resets list
+    populate_list()
 
-    x = (vw - BAR_WIDTH) // 2
-    y = vh // 2 - 30
+# Initialize main app layout
+def init_main_layout():
+    loading_frame.destroy()
 
-    dpg.set_item_pos("loading_group", (x, y))
+    # Filters + buttons
+    top_frame.pack(fill="x", padx=10, pady=10)
 
+    # Filters frame
+    filters_frame = ctk.CTkFrame(top_frame)
+    filters_frame.grid(row=0, column=0, padx=10, sticky="nw")
 
-def sync_loading_window():
-    if not dpg.does_item_exist("Loading Window"):
-        return
+    ctk.CTkLabel(filters_frame, text="Search by Name").grid(row=0, column=0, padx=5, pady=2)
+    global name_entry
+    name_entry = ctk.CTkEntry(filters_frame, width=80)
+    name_entry.grid(row=0, column=1, pady=2)
 
-    vw = dpg.get_viewport_width()
-    vh = dpg.get_viewport_height()
+    ctk.CTkLabel(filters_frame, text="Type 1").grid(row=1, column=0, padx=5, pady=2)
+    global type1_box
+    type1_box = ctk.CTkComboBox(filters_frame, values=sorted(set(df["Type1"])))
+    type1_box.grid(row=1, column=1, pady=2)
+    type1_box.set("")
 
-    dpg.set_item_pos("Loading Window", (0, 0))
-    dpg.set_item_width("Loading Window", vw)
-    dpg.set_item_height("Loading Window", vh)
+    ctk.CTkLabel(filters_frame, text="Type 2").grid(row=2, column=0, padx=5, pady=2)
+    global type2_box
+    type2_box = ctk.CTkComboBox(filters_frame, values=sorted(set(df["Type2"])))
+    type2_box.grid(row=2, column=1, pady=2)
+    type2_box.set("")
 
-    center_loading_group()
+    ctk.CTkLabel(filters_frame, text="Generation").grid(row=3, column=0, padx=5, pady=2)
+    global gen_box
+    gen_box = ctk.CTkComboBox(filters_frame, values=[str(g) for g in sorted(df["Generation"].unique())])
+    gen_box.grid(row=3, column=1, pady=2)
+    gen_box.set("")
 
+    global legendary_var
+    legendary_var = tk.BooleanVar()
+    ctk.CTkCheckBox(filters_frame, text="Legendary only", variable=legendary_var).grid(row=4, column=0, columnspan=2, pady=5)
 
-def viewport_resize_callback(sender, app_data):
-    sync_loading_window()
+    # Buttons
+    buttons_frame = ctk.CTkFrame(top_frame)
+    buttons_frame.grid(row=0, column=1, padx=20, sticky="nw")
+    ctk.CTkButton(buttons_frame, text="Apply Filters", command=apply_filters).pack(pady=5)
+    ctk.CTkButton(buttons_frame, text="Show All", command=show_all).pack(pady=5)
+    ctk.CTkButton(buttons_frame, text="Show Chart").pack(pady=5)  # placeholder
+    ctk.CTkButton(buttons_frame, text="Reset", command=reset_ui).pack(pady=5)  # Added Reset UI button
 
+    # Pokémon list & detail panels
+    main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-def loading_frame_callback():
-    global loading_progress
+    global list_frame, detail_frame
+    list_frame = ctk.CTkScrollableFrame(main_frame, width=300)
+    list_frame.pack(side="left", fill="y", padx=5, pady=5)
 
-    if not dpg.does_item_exist("loading_bar"):
-        return
+    detail_frame = ctk.CTkFrame(main_frame)
+    detail_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
-    loading_progress += 0.002
+    populate_list()
 
-    if loading_progress >= 1.0:
-        dpg.set_value("loading_bar", 1.0)
-        dpg.delete_item("Loading Window")
-        dpg.configure_item("Main Window", show=True)
-        return
+# Simulate loading
+def load_app():
+    for i in range(101):
+        progress.set(i / 100)
+        app.update()
+        time.sleep(0.01)
+    init_main_layout()
 
-    dpg.set_value("loading_bar", loading_progress)
-    dpg.set_value("loading_text", f"Loading... {int(loading_progress * 100)}%")
+threading.Thread(target=load_app).start()
 
-    dpg.set_frame_callback(
-        dpg.get_frame_count() + 1,
-        loading_frame_callback
-    )
-
-# GUI setup
-dpg.create_context()
-
-outdated = check_dependencies()
-
-if outdated:
-    with dpg.window(label="Dependency Error", modal=True, no_resize=True):
-        dpg.add_text("Application cannot continue.")
-        dpg.add_separator()
-        dpg.add_text("The following dependencies are outdated:")
-
-        for dep in outdated:
-            dpg.add_text(f"- {dep}")
-
-        dpg.add_spacer(height=10)
-        dpg.add_button(label="Exit", callback=lambda: sys.exit())
-
-else:
-    with dpg.window(
-        tag="Loading Window",
-        no_title_bar=True,
-        no_resize=True,
-        no_move=True,
-        modal=True
-    ):
-        with dpg.group(tag="loading_group"):
-            dpg.add_text("Initialising Pokedex...", tag="loading_text")
-            dpg.add_spacer(height=8)
-            dpg.add_progress_bar(
-                tag="loading_bar",
-                default_value=0.0,
-                width=BAR_WIDTH
-            )
-
-    with dpg.window(tag="Main Window", label="Pokedex", no_resize=True, no_move=True, no_close= True, no_collapse=True,show=False):
-        dpg.add_text("Pokédex Data Explorer")
-        dpg.add_separator()
-
-        dpg.add_button(
-            label="Show Overall Type Distribution",
-            callback=show_type_distribution
-        )
-
-        dpg.add_spacer(height=10)
-
-        dpg.add_combo(
-            label="Filter by Type 1",
-            items=sorted(
-                set(pokemon_df["Type1"])
-            ),
-            callback=filter_by_type,
-            width=200
-        )
-
-        dpg.add_spacer(height=10)
-
-        dpg.add_combo(
-            label="Filter by Type 2 (If applicable)",
-            items=sorted(
-                set(pokemon_df["Type2"])
-            ),
-            callback=filter_by_type,
-            width=200
-        )
-
-        dpg.add_spacer(height=10)
-
-        dpg.add_combo(
-            label="Filter by Generation",
-            items=sorted(pokemon_df["Generation"].unique()),
-            callback=filter_by_generation,
-            width=200
-        )
-
-# Run app
-dpg.create_viewport(title="Pokedex.exe", width=800, height=600)
-dpg.setup_dearpygui()
-dpg.show_viewport()
-
-if not outdated:
-    sync_loading_window()
-    dpg.set_viewport_resize_callback(viewport_resize_callback)
-    dpg.set_frame_callback(
-        dpg.get_frame_count() + 1,
-        loading_frame_callback
-    )
-
-dpg.start_dearpygui()
-dpg.destroy_context()
-
+app.mainloop()
