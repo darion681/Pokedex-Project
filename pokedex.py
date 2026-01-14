@@ -1,5 +1,6 @@
 import pandas as pd
-import matplotlib as plt
+import matplotlib
+import matplotlib.pyplot as plt
 import dearpygui.dearpygui as dpg
 from importlib.metadata import version as pkg_version
 from packaging import version
@@ -12,7 +13,7 @@ def check_dependencies():
     if version.parse(pd.__version__) < version.parse("2.3.3"):
         outdated.append("Pandas")
 
-    if version.parse(plt.__version__) < version.parse("3.10.8"):
+    if version.parse(matplotlib.__version__) < version.parse("3.10.8"):
         outdated.append("Matplotlib")
 
     if version.parse(pkg_version("dearpygui")) < version.parse("2.1.1"):
@@ -197,7 +198,7 @@ else:
                 width=BAR_WIDTH
             )
 
-    with dpg.window(tag="Main Window", label="Pokedex", show=False):
+    with dpg.window(tag="Main Window", label="Pokedex", no_resize=True, no_move=True, no_close= True, no_collapse=True,show=False):
         dpg.add_text("Pokédex Data Explorer")
         dpg.add_separator()
 
@@ -209,9 +210,20 @@ else:
         dpg.add_spacer(height=10)
 
         dpg.add_combo(
-            label="Filter by Type",
+            label="Filter by Type 1",
             items=sorted(
-                set(pokemon_df["Type1"]) | set(pokemon_df["Type2"])
+                set(pokemon_df["Type1"])
+            ),
+            callback=filter_by_type,
+            width=200
+        )
+
+        dpg.add_spacer(height=10)
+
+        dpg.add_combo(
+            label="Filter by Type 2 (If applicable)",
+            items=sorted(
+                set(pokemon_df["Type2"])
             ),
             callback=filter_by_type,
             width=200
@@ -241,3 +253,4 @@ if not outdated:
 
 dpg.start_dearpygui()
 dpg.destroy_context()
+
