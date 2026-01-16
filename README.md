@@ -16,7 +16,7 @@ Once Python is installed, you can install the latest version of the required lib
 
 If you receive an error saying that the pip command is not recognised, use these commands instead:
 
-  - py --m pip install pandas matplotlib
-  - py --m pip install customtkinter
+  - py -m pip install pandas matplotlib
+  - py -m pip install customtkinter
 
 After installing the dependencies, the application can be run directly through VS Code or any other Python-compatible IDE.
