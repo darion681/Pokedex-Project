@@ -13,7 +13,7 @@ import time
 
 # Dependency checks
 REQUIRED = {
-    "python": "3.10",
+    "python": "3.14",
     "pandas": "2.3.3",
     "customtkinter": "5.2.0",
     "Pillow": "9.0.0"
