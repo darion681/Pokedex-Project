@@ -19,6 +19,9 @@ REQUIRED = {
     "Pillow": "9.0.0"
 }
 
+# button configs
+expanded_generations = set()
+
 def check_dependencies():
     issues = []
 
@@ -123,23 +126,47 @@ def populate_list(filtered_df=None):
         widget.destroy()
 
     data = filtered_df if filtered_df is not None else df
+
     for g in sorted(data["Generation"].unique()):
         frame = ctk.CTkFrame(list_frame)
         frame.pack(fill="x", pady=5, padx=5)
 
-        def make_toggle(f=frame, gen=g):
-            def toggle():
-                for w in f.winfo_children()[1:]:
+        header = ctk.CTkButton(
+            frame,
+            text=f"Generation {g}",
+            width=250
+        )
+        header.pack(fill="x")
+
+        content_frame = ctk.CTkFrame(frame)
+      
+
+        def toggle(gen=g, container=content_frame):
+            if gen in expanded_generations:
+        # collapse
+                for w in container.winfo_children():
                     w.destroy()
+                container.pack_forget()
+                expanded_generations.remove(gen)
+            else:
+        # expand
+                expanded_generations.add(gen)
+                container.pack(fill="x", pady=2)
+
                 gen_data = data[data["Generation"] == gen].sort_values("Name")
-                for idx, row in gen_data.iterrows():
+                for _, row in gen_data.iterrows():
                     ctk.CTkButton(
-                        f, text=row["Name"], width=250,
+                        container,
+                        text=row["Name"],
+                        width=250,
                         command=lambda r=row: display_pokemon_detail(r)
                     ).pack(pady=1)
-            return toggle
 
-        ctk.CTkButton(frame, text=f"Generation {g}", command=make_toggle()).pack(fill="x")
+        header.configure(command=toggle)
+
+        # auto-expand 
+        if g in expanded_generations:
+            toggle()
 
 # Filters
 def apply_filters():
