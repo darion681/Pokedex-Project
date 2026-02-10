@@ -14,6 +14,8 @@ To run the program, you will need the *following dependencies installed*:
   - Pandas version **2.3.3 or higher**
   - Matplotlib version **3.10.8 or higher**
 
+## **Installing  and Updating Dependencies**
+
 If you do not already have Python installed, you can *download the latest version from*:
 https://www.python.org/downloads
 
