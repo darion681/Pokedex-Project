@@ -1,5 +1,11 @@
 # **This is a simple Pokédex application built with Python.**
 
+## **Installation guide**
+- To install the program press the code button above and then press download as zip.
+- Extract the zip folder to your desired location.
+- Open the folder and then you can drag the subfolder into your desired IDE.
+- Alternatively you can open the same subfolder through your desired IDE.
+
 To run the program, you will need the following dependencies installed:
   - Python version 3.13 or higher
   - CustomTkinter 5.2.0 or higher
