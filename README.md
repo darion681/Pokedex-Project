@@ -6,16 +6,18 @@
 - Open the folder and then you can drag the subfolder into your desired IDE.
 - Alternatively you can open the same subfolder through your desired IDE.
 
-To run the program, you will need the following dependencies installed:
-  - Python version 3.13 or higher
-  - CustomTkinter 5.2.0 or higher
-  - Pandas version 2.3.3 or higher
-  - Matplotlib version 3.10.8 or higher
+## **Program Requirements**
 
-If you do not already have Python installed, you can download the latest version from:
+To run the program, you will need the *following dependencies installed*:
+  - Python version **3.13 or higher**
+  - CustomTkinter **5.2.0 or higher**
+  - Pandas version **2.3.3 or higher**
+  - Matplotlib version **3.10.8 or higher**
+
+If you do not already have Python installed, you can *download the latest version from*:
 https://www.python.org/downloads
 
-Once Python is installed, you can install the latest version of the required libraries by running the following commands in Command Prompt:
+Once Python is installed, you can *install the latest version of the required libraries* by running the following commands in Command Prompt:
 
   - pip install pandas matplotlib
   - pip install customtkinter
