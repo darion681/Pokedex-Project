@@ -1,4 +1,4 @@
-*This is a simple Pokédex application built with Python.*
+**This is a simple Pokédex application built with Python.**
 
 To run the program, you will need the following dependencies installed:
   - Python version 3.13 or higher
