@@ -1,8 +1,8 @@
 import sys
 from importlib.metadata import version as pkg_version
 from packaging import version
-
 import pandas as pd
+import matplotlib.pyplot as plt
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
@@ -16,7 +16,8 @@ REQUIRED = {
     "python": "3.10",
     "pandas": "2.3.3",
     "customtkinter": "5.2.0",
-    "Pillow": "9.0.0"
+    "Pillow": "9.0.0",
+    "matplotlib": "3.8.0"
 }
 
 def check_dependencies():
@@ -27,6 +28,9 @@ def check_dependencies():
 
     if version.parse(pd.__version__) < version.parse(REQUIRED["pandas"]):
         issues.append(f"Pandas {REQUIRED['pandas']}+")
+
+    if version.parse(plt.matplotlib.__version__) < version.parse(REQUIRED["matplotlib"]):
+        issues.append(f"Matplotlib {REQUIRED['matplotlib']}+")
 
     if version.parse(pkg_version("customtkinter")) < version.parse(REQUIRED["customtkinter"]):
         issues.append(f"CustomTkinter {REQUIRED['customtkinter']}+")
@@ -51,7 +55,6 @@ if deps:
 # App setup
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
-
 app = ctk.CTk()
 app.title("Pokedex")
 app.geometry("1200x700")
@@ -123,6 +126,7 @@ def populate_list(filtered_df=None):
         widget.destroy()
 
     data = filtered_df if filtered_df is not None else df
+
     for g in sorted(data["Generation"].unique()):
         frame = ctk.CTkFrame(list_frame)
         frame.pack(fill="x", pady=5, padx=5)
@@ -141,8 +145,8 @@ def populate_list(filtered_df=None):
 
         ctk.CTkButton(frame, text=f"Generation {g}", command=make_toggle()).pack(fill="x")
 
-# Filters
-def apply_filters():
+# Shared filter logic
+def get_filtered_data():
     filtered = df.copy()
 
     name_filter = name_entry.get().strip().lower()
@@ -164,7 +168,30 @@ def apply_filters():
     if legendary_var.get():
         filtered = filtered[filtered["Legendary"] == True]
 
+    return filtered
+
+# Filters
+def apply_filters():
+    filtered = get_filtered_data()
     populate_list(filtered)
+
+def show_chart():
+    filtered = get_filtered_data()
+
+    if filtered.empty:
+        messagebox.showinfo("No Data", "No Pokémon match this filter")
+        return
+
+    types = pd.concat([filtered["Type1"], filtered["Type2"]])
+    types = types[types != ""].value_counts()
+
+    plt.figure(figsize=(9, 5))
+    types.plot(kind="bar")
+    plt.title("Pokémon Type Distribution")
+    plt.xlabel("Type")
+    plt.ylabel("Count")
+    plt.tight_layout()
+    plt.show()
 
 def show_all():
     name_entry.delete(0, tk.END)
@@ -182,11 +209,11 @@ def reset_ui():
     type2_box.set("")
     gen_box.set("")
     legendary_var.set(False)
-    
+
     # Clear detail panel
     for widget in detail_frame.winfo_children():
         widget.destroy()
-    
+
     # Resets list
     populate_list()
 
@@ -231,9 +258,10 @@ def init_main_layout():
     # Buttons
     buttons_frame = ctk.CTkFrame(top_frame)
     buttons_frame.grid(row=0, column=1, padx=20, sticky="nw")
+
     ctk.CTkButton(buttons_frame, text="Apply Filters", command=apply_filters).pack(pady=5)
     ctk.CTkButton(buttons_frame, text="Show All", command=show_all).pack(pady=5)
-    ctk.CTkButton(buttons_frame, text="Show Chart").pack(pady=5)  # placeholder
+    ctk.CTkButton(buttons_frame, text="Show Chart", command=show_chart).pack(pady=5)
     ctk.CTkButton(buttons_frame, text="Reset", command=reset_ui).pack(pady=5)  # Added Reset UI button
 
     # Pokémon list & detail panels
@@ -257,5 +285,4 @@ def load_app():
     init_main_layout()
 
 threading.Thread(target=load_app).start()
-
 app.mainloop()
